@@ -4,8 +4,10 @@ use std::io::Write;
 use std::fs::{self, OpenOptions};
 use ahash::HashMap;
 use anyhow::Result;
+use colored::{Color, Colorize};
 use console::Term;
 use entries::{Entry, Connotation, EntryId};
+use itertools::Itertools;
 use parsing::{parse_lines, connoted_entry};
 use tupletools::Snd;
 
@@ -17,7 +19,24 @@ fn main() -> Result<()> {
     let content = fs::read_to_string("vocabulary.txt")?;
     let entries = parse_lines(Entry::parse, &content)?;
 
-    connote(&entries)?;
+    let connotations = connote(&entries)?;
+    let total = connotations.len();
+
+    let frequencies = connotations.into_iter()
+        .counts_by(|(_, connotation)| connotation);
+
+    for (connotation, frequency) in frequencies {
+        let color = match connotation {
+            Connotation::Negative => Color::BrightRed,
+            Connotation::Neutral => Color::White,
+            Connotation::Positive => Color::BrightGreen
+        };
+
+        #[allow(clippy::cast_precision_loss)]
+        let percentage = frequency as f32 / total as f32 * 100_f32;
+        let text = format!("{frequency} / {total} {connotation} ({percentage:.2}%)").color(color);
+        println!("{text}");
+    }
 
     Ok(())
 }
